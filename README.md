@@ -3,14 +3,13 @@
 
 ## Auteurs
 - <federico.ulliana@inria.fr>
-- <guillaume.perution-kihli@inria.fr>
 
 #### Avant de commencer 
 
 Cloner le projet depuis le terminal.
 
 ```
-git clone https://gitlab.etu.umontpellier.fr/p00000415795/nosql-engine-skeleton.git
+git clone https://gitlab.etu.umontpellier.fr/p00000013857/hai914i
 ```
 
 ---
@@ -24,7 +23,7 @@ Le TD suivant sera dédié à l’évaluation des performances du système réal
 
 ## Consignes
 - Le TD se fait en groupes de 1 ou 2 personnes.
-- Lorsque vous avez décidé quel sera votre groupe, inscrivez-vous dans le [tableau suivant](https://docs.google.com/spreadsheets/d/1bQY-Xba11DNcbCC5gujvPnidhajN-Kcb306PjXveF7M/edit?usp=sharing)
+- Lorsque vous avez décidé quel sera votre groupe, inscrivez-vous dans le [tableau suivant](https://docs.google.com/spreadsheets/d/1REDJjyQ0Z7sTcpBhHCWGr1PIKv6taUk9Nz_lg38reTI/edit?usp=sharing)
 - Le langage de programmation est imposé : **Java**.
 
 ---
