@@ -3,6 +3,7 @@
 
 ## Auteurs
 - <federico.ulliana@inria.fr>
+- Guillaume Pérution-Khili
 
 #### Avant de commencer 
 
