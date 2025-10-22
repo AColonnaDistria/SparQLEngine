@@ -10,6 +10,7 @@
 		<junit-version>4.13.2</junit-version>
 		<junit-jupiter-version>5.10.2</junit-jupiter-version>
 		<mockito-version>5.3.1</mockito-version>
+		<integraal-version>1.7.2</integraal-version>
 	</properties>
 
 	<build>
@@ -98,6 +99,11 @@
 					</exclusion>
 				</exclusions>
 			</dependency>
+			<dependency>
+				<groupId>fr.lirmm.graphik</groupId>
+				<artifactId>view-parser</artifactId>
+				<version>1.0.2</version>
+			</dependency>
 		</dependencies>
 	</dependencyManagement>
 
@@ -107,7 +113,7 @@
 		<dependency>
 			<groupId>fr.lirmm.graphik</groupId>
 			<artifactId>integraal-model</artifactId>
-			<version>1.6.0</version>
+			<version>${integraal-version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -118,7 +124,7 @@
 		<dependency>
 			<groupId>fr.lirmm.graphik</groupId>
 			<artifactId>integraal-io</artifactId>
-			<version>1.6.0</version>
+			<version>${integraal-version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -129,7 +135,7 @@
 		<dependency>
 			<groupId>fr.lirmm.graphik</groupId>
 			<artifactId>integraal-storage</artifactId>
-			<version>1.6.0</version>
+			<version>${integraal-version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
@@ -140,7 +146,7 @@
 		<dependency>
 			<groupId>fr.lirmm.graphik</groupId>
 			<artifactId>integraal-query-evaluation</artifactId>
-			<version>1.6.0</version>
+			<version>${integraal-version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>org.slf4j</groupId>
