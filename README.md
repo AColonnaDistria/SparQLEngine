@@ -49,10 +49,10 @@ Tous les membres du groupe doivent être présents et présenter le travail réa
 5. **Document final** (10 pages + code) : **22 décembre** .
 
 ## Mini-soutenances / dates des évaluations en présentiel
-1. **Dictionnaire, index (Hexastore)** : **16 Novembre**.  
-2. **Évaluation des requêtes en étoile** :  **30 Novembre**.  
+1. **Dictionnaire, index (Hexastore)** : **14 Novembre**.  
+2. **Évaluation des requêtes en étoile** :  **28 Novembre**.  
 3. **Analyse des bancs d'essai et plan des tests à réaliser** : **6 Décembre** 
-4. **Analyse des performances** :  **14 Décembre**.
+4. **Analyse des performances** :  **12 Décembre**.
 
 Après la dernière évaluation en présentiel, vous aurez une semaine supplémentaire pour apporter les dernières corrections et finaliser au mieux votre projet. Les améliorations apportées seront naturellement prises en compte dans la note finale.
 
