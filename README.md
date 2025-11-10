@@ -218,7 +218,8 @@ L’accès aux données se fait par les structures de données mises en œuvre. 
 
 - **Lien avec le code :**  
   - Implémentez une méthode spécifique pour l’évaluation des requêtes en étoile.  
-  - Cette évaluation est utilisée par la méthode `match(StarQuery q)` de l’Hexastore.
+  - Cette évaluation est utilisée par la méthode `match(StarQuery q)` de l’Hexastore. 
+  Vous pouvez implémenter cela directement au niveau de l'interface `RDFStorage` afin qu'elle soit héritée par toutes les implémentations de cette interface (ici, Giant-Table et Hexastore).
 
 ---
 
