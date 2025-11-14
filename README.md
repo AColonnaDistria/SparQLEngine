@@ -2,6 +2,7 @@
 # HAI914I - Un moteur d’évaluation de requêtes en étoile
 
 ## Auteurs
+- Antoine Colonna d'Istria
 - <federico.ulliana@inria.fr>
 - Guillaume Pérution-Khili
 
