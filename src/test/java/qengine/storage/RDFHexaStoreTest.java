@@ -88,8 +88,11 @@ public class RDFHexaStoreTest {
         secondResult.add(VAR_X, OBJECT_3);
 
         assertEquals(2, matchedList.size(), "There should be two matched RDFAtoms");
-        assertTrue(matchedList.contains(secondResult), "Missing substitution: " + firstResult);
-        assertTrue(matchedList.contains(secondResult), "Missing substitution: " + secondResult);
+        System.out.println(matchedList);
+        assertTrue(matchedList.stream().anyMatch(s -> s.toMap().equals(firstResult.toMap())), "Missing substitution: " + firstResult);
+        assertTrue(matchedList.stream().anyMatch(s -> s.toMap().equals(secondResult.toMap())), "Missing substitution: " + secondResult);
+
+        ;
 
         // Other cases
         throw new NotImplementedException("This test must be completed");
