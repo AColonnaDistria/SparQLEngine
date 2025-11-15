@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.Collection;
+import java.util.Iterator;
 
 /**
  * Implémentation Giant-Table pour stocker des RDFTriple.

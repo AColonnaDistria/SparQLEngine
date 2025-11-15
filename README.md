@@ -2,6 +2,7 @@
 # HAI914I - Un moteur d’évaluation de requêtes en étoile
 
 ## Auteurs
+- Antoine Colonna d'Istria
 - <federico.ulliana@inria.fr>
 - Guillaume Pérution-Khili
 
@@ -42,14 +43,14 @@ Les étapes clé du projet sont sujet à la fois d'un rendu (rapport court de 3-
 Tous les membres du groupe doivent être présents et présenter le travail réalisé à l'encadrant.
 
 ## Rendus (dans Moodle)
-1. **Dictionnaire, index (Hexastore)** : rendu du code (pas de rapport) - **15 Novembre**.  
+1. **Dictionnaire, Giant-Table, index (Hexastore)** : rendu du code (pas de rapport) - **15 Novembre**.  
 2. **Évaluation des requêtes en étoile** : code + rapport (3 pages) - **29 Novembre**.  
 3. **Analyse des bancs d'essai et plan des tests à réaliser.** : déscription des tests **6 Décembre** 
 4. **Analyse des performances** : rapport (5 pages) - **13 Décembre**.
 5. **Document final** (10 pages + code) : **22 décembre** .
 
 ## Mini-soutenances / dates des évaluations en présentiel
-1. **Dictionnaire, index (Hexastore)** : **14 Novembre**.  
+1. **Dictionnaire, Giant-Table, index (Hexastore)** : **14 Novembre**.  
 2. **Évaluation des requêtes en étoile** :  **28 Novembre**.  
 3. **Analyse des bancs d'essai et plan des tests à réaliser** : **6 Décembre** 
 4. **Analyse des performances** :  **12 Décembre**.
