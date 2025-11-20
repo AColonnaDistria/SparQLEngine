@@ -7,8 +7,6 @@ import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
 
-import static org.mockito.Mockito.framework;
-
 import java.util.*;
 
 /**
@@ -23,11 +21,13 @@ public class RDFHexaStore implements RDFStorage {
 	Index3i spo;
 	Index3i sop;
 
-	Index3i pso;
+	Index3i pso;	
 	Index3i pos;
 
 	Index3i osp;
 	Index3i ops;
+	
+    private static List<List<List<List<Index3i>>>> choix_index_array;
 	
 	public RDFHexaStore() {
 		this.dictionary = new Dictionary();
@@ -40,32 +40,87 @@ public class RDFHexaStore implements RDFStorage {
 		
 		this.osp = new Index3i();
 		this.ops = new Index3i();
+		
+		TriplePermutation SPO_ORDER = (s, p, o) -> Arrays.asList(s, p, o);
+		TriplePermutation SOP_ORDER = (s, p, o) -> Arrays.asList(s, o, p);
+
+		TriplePermutation PSO_ORDER = (s, p, o) -> Arrays.asList(p, s, o);
+		TriplePermutation POS_ORDER = (s, p, o) -> Arrays.asList(p, o, s);
+
+		TriplePermutation OSP_ORDER = (s, p, o) -> Arrays.asList(o, s, p);
+		TriplePermutation OPS_ORDER = (s, p, o) -> Arrays.asList(o, p, s);
+
+		TriplePermutationTerm SPO_ORDER_TERM = (s, p, o) -> Arrays.asList(s, p, o);
+		TriplePermutationTerm SOP_ORDER_TERM = (s, p, o) -> Arrays.asList(s, o, p);
+
+		TriplePermutationTerm PSO_ORDER_TERM = (s, p, o) -> Arrays.asList(p, s, o);
+		TriplePermutationTerm POS_ORDER_TERM = (s, p, o) -> Arrays.asList(p, o, s);
+
+		TriplePermutationTerm OSP_ORDER_TERM = (s, p, o) -> Arrays.asList(o, s, p);
+		TriplePermutationTerm OPS_ORDER_TERM = (s, p, o) -> Arrays.asList(o, p, s);
+
+		// INVERSE
+		// SPO_ORDER_INVERSE = SPO_ORDER
+		// SOP_ORDER_INVERSE = SOP_ORDER
+		
+		// PSO_ORDER_INVERSE = PSO_ORDER
+		// POS_ORDER_INVERSE = OSP_ORDER
+		
+		// OSP_ORDER_INVERSE = POS_ORDER
+		// OPS_ORDER_INVERSE = OPS_ORDER
+		
+		this.spo.setPermutationOrder(SPO_ORDER, SPO_ORDER_TERM, SPO_ORDER, SPO_ORDER_TERM);
+		this.sop.setPermutationOrder(SOP_ORDER, SOP_ORDER_TERM, SOP_ORDER, SOP_ORDER_TERM);
+		
+		this.pso.setPermutationOrder(PSO_ORDER, PSO_ORDER_TERM, PSO_ORDER, PSO_ORDER_TERM);
+		this.pos.setPermutationOrder(POS_ORDER, POS_ORDER_TERM, OSP_ORDER, OSP_ORDER_TERM);
+
+		this.osp.setPermutationOrder(OSP_ORDER, OSP_ORDER_TERM, POS_ORDER, POS_ORDER_TERM);
+		this.ops.setPermutationOrder(OPS_ORDER, OPS_ORDER_TERM, OPS_ORDER, OPS_ORDER_TERM);
+		
+		this.choix_index_array = List.of(
+	    	List.of(
+    			// s
+    			List.of(
+    				// p
+    				List.of(sop, osp, spo, pso, ops, pos), // o
+    				List.of(spo, pso)  // ?o
+    			),
+    			List.of(
+    				// ?p
+    				List.of(sop, osp), // o
+    				List.of(spo, sop)  // ?o
+    			)
+    		),
+    		List.of(
+    			// ?s
+    			List.of(
+    				// p
+    				List.of(pos, ops), // o
+    				List.of(pso, pos)  // ?o
+    			),
+    			List.of(
+    				// ?p
+    				List.of(osp, ops), // o
+    				List.of(sop, osp, spo, pso, ops, pos)  // ?o
+    			)
+    		)
+		);
 	}
 	
     @Override
     public boolean add(RDFTriple triple) {
     	int s, p, o;
     	
-    	if (!this.dictionary.containsValue(triple.getTripleSubject())) {
-    		this.dictionary.put(triple.getTripleSubject());
-    	}
-
-    	if (!this.dictionary.containsValue(triple.getTriplePredicate())) {
-    		this.dictionary.put(triple.getTriplePredicate());
-    	}
-
-    	if (!this.dictionary.containsValue(triple.getTripleObject())) {
-    		this.dictionary.put(triple.getTripleObject());
-    	}
+    	s = this.dictionary.put(triple.getTripleSubject());
+    	p = this.dictionary.put(triple.getTriplePredicate());
+    	o = this.dictionary.put(triple.getTripleObject());
     	
-    	s = this.dictionary.getId(triple.getTripleSubject());
-    	p = this.dictionary.getId(triple.getTriplePredicate());
-    	o = this.dictionary.getId(triple.getTripleObject());
-    	
-    	return insertTripleId(s, p, o);
+    	insertTripleId(s, p, o);
+    	return true;
     }
     
-    private boolean insertTripleId(int s, int p, int o) {
+    private void insertTripleId(int s, int p, int o) {
     	this.spo.put(s, p, o);
     	this.sop.put(s, o, p);
     	
@@ -74,8 +129,6 @@ public class RDFHexaStore implements RDFStorage {
 
     	this.osp.put(o, s, p);
     	this.ops.put(o, p, s);
-    	
-    	return true;
     }
 
     @Override
@@ -83,11 +136,104 @@ public class RDFHexaStore implements RDFStorage {
     	return this.spo.size();
     }
 
+    private boolean isEqual(Term term1, Term term2) {
+    	return term1.label().equals(term2.label());
+    }
+    
+    private void addSubstitution(ArrayList<Substitution> subs, 
+    	Term variableTerm, Term substitutionTerm) {
+    	
+    	SubstitutionImpl sub = new SubstitutionImpl();
+    	sub.add((Variable) variableTerm, substitutionTerm);
+    	
+    	subs.add(sub);
+    }
+    
+    private void addSubstitution(ArrayList<Substitution> subs, 
+    	Term variableTerm1, Term substitutionTerm1, 
+    	Term variableTerm2, Term substitutionTerm2) {
+    	
+    	SubstitutionImpl sub = new SubstitutionImpl();
+    	sub.add((Variable) variableTerm1, substitutionTerm1);
+    	sub.add((Variable) variableTerm2, substitutionTerm2);
+    	
+    	subs.add(sub);
+    }
+
+    private void addSubstitution(ArrayList<Substitution> subs, 
+    	Term variableTerm1, Term substitutionTerm1, 
+    	Term variableTerm2, Term substitutionTerm2,
+    	Term variableTerm3, Term substitutionTerm3) {
+    	
+    	SubstitutionImpl sub = new SubstitutionImpl();
+    	sub.add((Variable) variableTerm1, substitutionTerm1);
+    	sub.add((Variable) variableTerm2, substitutionTerm2);
+    	sub.add((Variable) variableTerm3, substitutionTerm3);
+    	
+    	subs.add(sub);
+    }
+
+    private void addEmptySubstitution(ArrayList<Substitution> subs) {
+    	SubstitutionImpl sub = new SubstitutionImpl();
+    	subs.add(sub);
+    }
+    
+    private List<Index3i> choose_indexes(boolean variableSubject, boolean variablePredicate, boolean variableObject) {
+    	int vs = variableSubject ? 1 : 0;
+    	int vp = variablePredicate ? 1 : 0;
+    	int vo = variableObject ? 1 : 0;
+    	
+    	return this.choix_index_array.get(vs).get(vp).get(vo);
+    }
+    
+    private Index3i choose_index(boolean variableSubject, boolean variablePredicate, boolean variableObject, Integer s, Integer p, Integer o) {
+    	List<Index3i> indexes = choose_indexes(variableSubject, variablePredicate, variableObject);
+    	
+    	return indexes.stream().sorted((Index3i index1, Index3i index2) -> {
+    		int s1 = index1.selectivity();
+    		int s2 = index2.selectivity();
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+    		
+    		List<Integer> keys_index1_perm = index1.applyPermutationOrder(s, p, o);
+    		List<Integer> keys_index2_perm = index2.applyPermutationOrder(s, p, o);
+    		
+    		s1 = index1.selectivity(keys_index1_perm.get(0));
+    		s2 = index2.selectivity(keys_index2_perm.get(0));
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+
+    		s1 = index1.selectivity(keys_index1_perm.get(0), keys_index1_perm.get(1));
+    		s2 = index2.selectivity(keys_index2_perm.get(0), keys_index2_perm.get(1));
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+    		
+    		return 0;
+    	}).findFirst().orElse(null);
+    }
+    
     @Override
     public Iterator<Substitution> match(RDFTriple triple) {
-    	boolean variableSubject = triple.getTripleSubject().label().startsWith("?");
-    	boolean variablePredicate = triple.getTriplePredicate().label().startsWith("?");
-    	boolean variableObject = triple.getTripleObject().label().startsWith("?");
+    	ArrayList<Substitution> subs = new ArrayList<Substitution>();
+    	
+    	boolean variableSubject = triple.getTripleSubject().isVariable();
+    	boolean variablePredicate = triple.getTriplePredicate().isVariable();
+    	boolean variableObject = triple.getTripleObject().isVariable();
     	
     	Term subject = triple.getTripleSubject();
     	Term predicate = triple.getTriplePredicate();
@@ -97,162 +243,72 @@ public class RDFHexaStore implements RDFStorage {
     	int p = variablePredicate ? -1 : this.dictionary.getId(predicate);
     	int o = variableObject ? -1 : this.dictionary.getId(object);
 
-    	// choisit l'index tel que 
-
-    	// (1) les objets variables sont placés le plus à droite
-    	// (2) les objets variables égaux sont placés le plus à droite
+    	// choisit le meilleur index
+    	Index3i index = this.choose_index(variableSubject, variablePredicate, variableObject, s, p, o);
+    	List<Integer> keys = index.applyPermutationOrder(s, p, o);
+    	List<Term> terms = index.applyPermutationOrder(subject, predicate, object);
     	
-    	if (!variableSubject) {
-    		if (!variablePredicate) {
-    			if (!variableObject) {
-    				// s p o
-    				return match_index(this.spo, subject, predicate, object);
-    			}
-    			else {
-    				// s p ?o
-    				return match_index(this.spo, subject, predicate, object);
-    			}
-    		}
-    		else {
-    			if (!variableObject) {
-    				// s ?p o 
-    				return match_index(this.sop, subject, object, predicate);
-    			}
-    			else {
-    				// s ?p ?o
-    				return match_index(this.sop, subject, object, predicate);
-    			}
+    	int key1 = keys.get(0);
+    	int key2 = keys.get(1);
+    	int key3 = keys.get(2);
+    	
+    	Term term1 = terms.get(0);
+    	Term term2 = terms.get(1);
+    	Term term3 = terms.get(2);
+    	
+    	int count = ((key1 == -1) ? 1 : 0) + ((key2 == -1) ? 1 : 0) + ((key3 == -1) ? 1 : 0);
+    	
+    	if (count == 0) {
+    		if (index.contains(key1, key2, key3)) {
+    			addEmptySubstitution(subs);
     		}
     	}
-    	else {
-    		if (!variablePredicate) {
-    			if (!variableObject) {
-    				// ?s p o
-    				return match_index(this.pos, predicate, object, subject);
-    			}
-    			else {
-    				// ?s p ?o
-    				return match_index(this.pos, predicate, object, subject);
-    			}
-    		}
-    		else {
-    			if (!variableObject) {
-    				// ?s ?p o
-    				return match_index(this.ops, object, predicate, subject);
-    			}
-    			else {
-    				// ?s ?p ?o
-    				if (subject.label().equals(object.label())) {
-        				return match_index(this.pos, predicate, object, subject);
-    				}
-    				else if (subject.label().equals(predicate.label())) {
-        				return match_index(this.osp, object, subject, predicate);
-    				}
-    				else {
-        				return match_index(this.spo, subject, predicate, object);
-    				}
-    			}
+    	else if (count == 1) {
+    		Set<Integer> keySet3 = index.get(key1, key2);
+    		
+    		for (int key3_subs : keySet3) {
+    			Term term3_subs = dictionary.getValue(key3_subs);
+    			
+    			addSubstitution(subs, term3, term3_subs);
     		}
     	}
-    }
-    
-    private Iterator<Substitution> match_index(Index3i index, Term term1, Term term2, Term term3) {
-    	boolean variableTerm1 = term1.label().startsWith("?");
-    	boolean variableTerm2 = term2.label().startsWith("?");
-    	boolean variableTerm3 = term3.label().startsWith("?");
+    	else if (count == 2) {
+    		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1);
+    		Set<Integer> keySet2 = L2.keySet();
+    		
+    		for (int key2_subs : keySet2) {
+    			Term term2_subs = dictionary.getValue(key2_subs);
+    			Set<Integer> keySet3 = L2.get(key2_subs);
+    			
+        		for (int key3_subs : keySet3) {
+        			Term term3_subs = dictionary.getValue(key3_subs);
 
-    	boolean eq12 = variableTerm1 && variableTerm2 && term1.label().equals(term2.label()); // ?x = ?y = ?z
-    	boolean eq23 = variableTerm2 && variableTerm3 && term2.label().equals(term3.label()); // ?y = ?z
+        			addSubstitution(subs, term2, term2_subs, term3, term3_subs);
+        		}
+    		}
+    	}
+    	else { // count == 3
+    		Set<Integer> keySet1 = index.keySet();
+    		
+    		for (int key1_subs : keySet1) {
+        		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1_subs);
+        		Set<Integer> keySet2 = L2.keySet();
+    			Term term1_subs = dictionary.getValue(key1_subs);
+        		
+        		for (int key2_subs : keySet2) {
+        			Term term2_subs = dictionary.getValue(key2_subs);
+        			Set<Integer> keySet3 = L2.get(key2_subs);
+        			
+            		for (int key3_subs : keySet3) {
+            			Term term3_subs = dictionary.getValue(key3_subs);
+
+            			addSubstitution(subs, term1, term1_subs, term2, term2_subs, term3, term3_subs);
+            		}
+        		}
+    		}
+    	}
     	
-    	// ici on suppose
-    	
-    	// (1) les objets variables sont placés le plus à droite
-    	// (2) les objets variables égaux sont placés le plus à droite
-    	
-		ArrayList<Substitution> subs = new ArrayList<Substitution>();
-		
-		if (eq12) {
-			// cas ?x = ?y = ?z.
-
-			Collection<Integer> L1 = index.keySet();
-			
-			for (int id1 : L1) {
-				if (index.contains(id1, id1, id1)) {
-					SubstitutionImpl current_subs = new SubstitutionImpl();
-					
-					Term current_term1 = this.dictionary.getValue(id1);
-					current_subs.add(new VariableImpl(term1.label()), current_term1);
-				
-					subs.add(current_subs);
-				}
-			}
-			
-			return subs.iterator();
-		}
-
-		if (eq23) {
-			// cas ?y = ?z.
-			Collection<Integer> L1 = variableTerm1 ? index.keySet() : List.of(this.dictionary.getId(term1));
-			for (int id1 : L1) {
-				TreeMap<Integer, HashSet<Integer>> map2 = index.get(id1);
-				Collection<Integer> L2 = variableTerm2 ? map2.keySet() : List.of(this.dictionary.getId(term2));
-				
-				for (int id2 : L2) {
-					if (index.contains(id1, id2, id2)) {
-						SubstitutionImpl current_subs = new SubstitutionImpl();
-						
-						Term current_term1 = this.dictionary.getValue(id1);
-						Term current_term2 = this.dictionary.getValue(id2);
-						
-						if (variableTerm1) {
-							current_subs.add(new VariableImpl(term1.label()), current_term1);
-						}
-
-						current_subs.add(new VariableImpl(term2.label()), current_term2);
-
-						subs.add(current_subs);
-					}
-				}
-			}
-			
-			return subs.iterator();
-		}
-		
-		// cas tous differents
-		Collection<Integer> L1 = variableTerm1 ? index.keySet() : List.of(this.dictionary.getId(term1));
-		for (int id1 : L1) {
-			TreeMap<Integer, HashSet<Integer>> map2 = index.get(id1);
-			Collection<Integer> L2 = variableTerm2 ? map2.keySet() : List.of(this.dictionary.getId(term2));
-			
-			for (int id2 : L2) {
-				HashSet<Integer> map3 = map2.get(id2);
-				Collection<Integer> L3 = variableTerm3 ? map3 : List.of(this.dictionary.getId(term3));
-				
-				for (int id3 : L3) {
-					SubstitutionImpl current_subs = new SubstitutionImpl();
-					
-					Term current_term1 = this.dictionary.getValue(id1);
-					Term current_term2 = this.dictionary.getValue(id2);
-					Term current_term3 = this.dictionary.getValue(id3);
-					
-					if (variableTerm1) {
-						current_subs.add(new VariableImpl(term1.label()), current_term1);
-					}
-
-					if (variableTerm2) {
-						current_subs.add(new VariableImpl(term2.label()), current_term2);
-					}
-
-					if (variableTerm3) {
-						current_subs.add(new VariableImpl(term3.label()), current_term3);
-					}
-					
-					subs.add(current_subs);
-				}
-			}
-		}
-		
-		return subs.iterator();
+    	return subs.iterator();
     }
     
     @Override
@@ -269,33 +325,40 @@ public class RDFHexaStore implements RDFStorage {
     	o = this.dictionary.getId(triple.getTripleObject());
     	
     	// modify in order to account for best index
-    	if (this.spo.contains(s, p, o)) {
-    		return 1;
-    	}
-    	else {
-    		return 0;
-    	}
+    	Index3i index = this.choose_index(false, false, false, s, p, o);
+    	
+    	return (index.containsAsSPO(s, p, o)) ? 1 : 0;
     }
 
     @Override
     public Collection<RDFTriple> getAtoms() {
-    	ArrayList<RDFTriple> atoms = new ArrayList<>();
+    	Index3i index = this.choose_index(true, true, true, -1, -1, -1);
     	
-    	for (int s : this.spo.keySet()) {
-			Term subject = this.dictionary.getValue(s);
-    		TreeMap<Integer, HashSet<Integer>> po = this.spo.get(s);
+    	ArrayList<RDFTriple> atoms = new ArrayList<>();
+		Set<Integer> keySet1 = index.keySet();
+		
+		for (int key1 : keySet1) {
+    		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1);
+    		Set<Integer> keySet2 = L2.keySet();
+			Term term1 = dictionary.getValue(key1);
     		
-    		for (int p : po.keySet()) {
-    			HashSet<Integer> objects = po.get(p);
-    			Term predicate = this.dictionary.getValue(p);
+    		for (int key2 : keySet2) {
+    			Term term2 = dictionary.getValue(key2);
+    			Set<Integer> keySet3 = L2.get(key2);
     			
-        		for (int o : objects) {
-        			Term object = this.dictionary.getValue(o);
+        		for (int key3 : keySet3) {
+        			Term term3 = dictionary.getValue(key3);
+
+        			List<Term> SPO = index.applyInversePermutationOrder(term1, term2, term3);
+        			
+        			Term subject = SPO.get(0);
+        			Term predicate = SPO.get(1);
+        			Term object = SPO.get(2);
         			
         			atoms.add(new RDFTriple(subject, predicate, object));
         		}
     		}
-    	}
+		}
     	
     	return atoms;
     }

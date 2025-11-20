@@ -32,21 +32,9 @@ public class GiantTable implements RDFStorage {
 	
     @Override
     public boolean add(RDFTriple triple) {
-    	Integer s = dictionary.getId(triple.getTripleSubject());
-    	Integer p = dictionary.getId(triple.getTriplePredicate());
-    	Integer o = dictionary.getId(triple.getTripleObject());
-    	
-    	if (s == null) {
-    		s = dictionary.put(triple.getTripleSubject());
-    	}
-
-    	if (p == null) {
-    		p = dictionary.put(triple.getTriplePredicate());
-    	}
-
-    	if (o == null) {
-    		o = dictionary.put(triple.getTripleObject());
-    	}
+    	Integer s = dictionary.tryGetIdOrCreate(triple.getTripleSubject());
+    	Integer p = dictionary.tryGetIdOrCreate(triple.getTriplePredicate());
+    	Integer o = dictionary.tryGetIdOrCreate(triple.getTripleObject());
     	
     	return this.giantTable.add(new TripletId(s, p, o));
     }
@@ -55,7 +43,11 @@ public class GiantTable implements RDFStorage {
     public long size() {
         return this.giantTable.size();
     }
-
+    
+    private boolean isEqual(Term term1, Term term2) {
+    	return term1.label().equals(term2.label());
+    }
+    
     @Override
     public Iterator<Substitution> match(RDFTriple triple) {
     	Term subject = triple.getTripleSubject();
@@ -65,24 +57,29 @@ public class GiantTable implements RDFStorage {
     	Integer s = dictionary.getId(subject);
     	Integer p = dictionary.getId(predicate);
     	Integer o = dictionary.getId(object);
+
+    	// check existence
+    	if (s == null || p == null || o == null) {
+    		// error
+    	}
     	
     	Stream<TripletId> st = this.giantTable.stream();
     	
-    	if (!subject.label().startsWith("?")) {
+    	if (!subject.isVariable()) {
     		st = st.filter(tr -> tr.getSubjectId() == s);
     	}
 
-    	if (!predicate.label().startsWith("?")) {
+    	if (!predicate.isVariable()) {
     		st = st.filter(tr -> tr.getPredicateId() == p);
     	}
 
-    	if (!object.label().startsWith("?")) {
+    	if (!object.isVariable()) {
     		st = st.filter(tr -> tr.getObjectId() == o);
     	}
     	
-    	boolean eq_sp = subject.label().startsWith("?") && predicate.label().startsWith("?") && subject.label().equals(predicate);
-    	boolean eq_so = subject.label().startsWith("?") && object.label().startsWith("?") && subject.label().equals(object);
-    	boolean eq_po = predicate.label().startsWith("?") && object.label().startsWith("?") && predicate.label().equals(object);
+    	boolean eq_sp = subject.isVariable() && predicate.isVariable() && isEqual(subject, predicate);
+    	boolean eq_so = subject.isVariable() && object.isVariable() && isEqual(subject, object);
+    	boolean eq_po = predicate.isVariable() && object.isVariable() && isEqual(predicate, object);
     	
     	if (eq_sp) {
     		st = st.filter(tr -> tr.getSubjectId() == tr.getPredicateId());
@@ -97,24 +94,21 @@ public class GiantTable implements RDFStorage {
     	}
     	
     	return st.map(tr -> {
-		            Substitution subs = new SubstitutionImpl();
-		
-		            if (subject.label().startsWith("?")) {
-		            	subs.add(new VariableImpl(subject.label()), dictionary.getValue(tr.getSubjectId()));
-		            }
+            Substitution subs = new SubstitutionImpl();
 
-		            if (predicate.label().startsWith("?")) {
-		            	subs.add(new VariableImpl(predicate.label()), dictionary.getValue(tr.getPredicateId()));
-		            }
+            if (subject.isVariable())
+            	subs.add((VariableImpl)subject, dictionary.getValue(tr.getSubjectId()));
 
-		            if (object.label().startsWith("?")) {
-		            	subs.add(new VariableImpl(object.label()), dictionary.getValue(tr.getObjectId()));
-		            }
-		
-		            return subs;
-		        })
-    		    .collect(Collectors.toList())
-    		    .iterator();
+            if (predicate.isVariable())
+            	subs.add((VariableImpl)predicate, dictionary.getValue(tr.getPredicateId()));
+
+            if (object.isVariable())
+            	subs.add((VariableImpl)object, dictionary.getValue(tr.getObjectId()));
+
+            return subs;
+        })
+	    .collect(Collectors.toList())
+	    .iterator();
     }
 
     @Override
@@ -129,13 +123,13 @@ public class GiantTable implements RDFStorage {
     	Integer o = dictionary.getId(triple.getTripleObject());
     	
     	if (s == null || p == null || o == null) {
+    		// missing operands
     		return 0;
     	}
     	
     	return this.giantTable.stream().filter(tr -> 
-    		((tr.getSubjectId() == s)
-    	  && (tr.getPredicateId() == p)
-    	  && (tr.getObjectId() == o))).count();
+    		((tr.getSubjectId() == s) && (tr.getPredicateId() == p) && (tr.getObjectId() == o)))
+    		.count();
     }
 
     @Override

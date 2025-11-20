@@ -24,7 +24,7 @@ public class RDFHexaStoreTest {
     private static final Literal<String> OBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("object3");
     private static final Variable VAR_X = SameObjectTermFactory.instance().createOrGetVariable("?x");
     private static final Variable VAR_Y = SameObjectTermFactory.instance().createOrGetVariable("?y");
-
+    private static final Variable VAR_Z = SameObjectTermFactory.instance().createOrGetVariable("?z");
 
     @Test
     public void testAddAllRDFAtoms() {
@@ -72,6 +72,64 @@ public class RDFHexaStoreTest {
     @Test
     public void testMatchAtom() {
         RDFHexaStore store = new RDFHexaStore();
+        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1));
+        store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2));
+        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3));
+
+        // Cas : objet variable
+        RDFTriple matchObjVar = new RDFTriple(SUBJECT_1, PREDICATE_1, VAR_X);
+        List<Substitution> subsObjVar = new ArrayList<>();
+        store.match(matchObjVar).forEachRemaining(subsObjVar::add);
+
+        assertEquals(2, subsObjVar.size(), "Objet variable: deux correspondances attendues");
+        Substitution subObj1 = new SubstitutionImpl();
+        subObj1.add(VAR_X, OBJECT_1);
+        Substitution subObj3 = new SubstitutionImpl();
+        subObj3.add(VAR_X, OBJECT_3);
+        assertTrue(subsObjVar.contains(subObj1));
+        assertTrue(subsObjVar.contains(subObj3));
+
+        // Cas : sujet variable
+        RDFTriple matchSubVar = new RDFTriple(VAR_X, PREDICATE_1, OBJECT_2);
+        List<Substitution> subsSubVar = new ArrayList<>();
+        store.match(matchSubVar).forEachRemaining(subsSubVar::add);
+
+        assertEquals(1, subsSubVar.size(), "Sujet variable: une correspondance attendue");
+        Substitution subSub = new SubstitutionImpl();
+        subSub.add(VAR_X, SUBJECT_2);
+        assertTrue(subsSubVar.contains(subSub));
+
+        // Cas : prédicat variable
+        RDFTriple matchPredVar = new RDFTriple(SUBJECT_1, VAR_X, OBJECT_1);
+        List<Substitution> subsPredVar = new ArrayList<>();
+        store.match(matchPredVar).forEachRemaining(subsPredVar::add);
+
+        assertEquals(1, subsPredVar.size(), "Prédicat variable: une correspondance attendue");
+        Substitution subPred = new SubstitutionImpl();
+        subPred.add(VAR_X, PREDICATE_1);
+        assertTrue(subsPredVar.contains(subPred));
+
+        // Cas : sujet et objet variables
+        RDFTriple matchSubObjVar = new RDFTriple(VAR_X, PREDICATE_1, VAR_Y);
+        List<Substitution> subsSubObjVar = new ArrayList<>();
+        store.match(matchSubObjVar).forEachRemaining(subsSubObjVar::add);
+
+        assertEquals(3, subsSubObjVar.size(), "Sujet et objet variables: trois correspondances attendues");
+
+        Substitution s1 = new SubstitutionImpl(); s1.add(VAR_X, SUBJECT_1); s1.add(VAR_Y, OBJECT_1);
+        Substitution s2 = new SubstitutionImpl(); s2.add(VAR_X, SUBJECT_1); s2.add(VAR_Y, OBJECT_3);
+        Substitution s3 = new SubstitutionImpl(); s3.add(VAR_X, SUBJECT_2); s3.add(VAR_Y, OBJECT_2);
+
+        assertTrue(subsSubObjVar.contains(s1));
+        assertTrue(subsSubObjVar.contains(s2));
+        assertTrue(subsSubObjVar.contains(s3));
+    }
+
+    
+    /*
+    @Test
+    public void testMatchAtom() {
+        RDFHexaStore store = new RDFHexaStore();
         store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1)); // RDFAtom(subject1, triple, object1)
         store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2)); // RDFAtom(subject2, triple, object2)
         store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3)); // RDFAtom(subject1, triple, object3)
@@ -89,14 +147,15 @@ public class RDFHexaStoreTest {
 
         assertEquals(2, matchedList.size(), "There should be two matched RDFAtoms");
         System.out.println(matchedList);
-        assertTrue(matchedList.stream().anyMatch(s -> s.toMap().equals(firstResult.toMap())), "Missing substitution: " + firstResult);
-        assertTrue(matchedList.stream().anyMatch(s -> s.toMap().equals(secondResult.toMap())), "Missing substitution: " + secondResult);
+        assertTrue(matchedList.contains(firstResult), "Missing substitution: " + firstResult);
+        assertTrue(matchedList.contains(secondResult), "Missing substitution: " + secondResult);
 
         ;
 
         // Other cases
-        throw new NotImplementedException("This test must be completed");
+        // throw new NotImplementedException("This test must be completed");
     }
+    */
 
     @Test
     public void testMatchStarQuery() {

@@ -16,7 +16,11 @@ public class Dictionary {
 		this.count = 0;
 	}
 	
-	public int put(Term term) {
+	public Integer put(Term term) {
+		if (this.containsValue(term)) {
+			return this.getId(term);
+		}
+		
 		int id = count;
 		++count;
 		
@@ -36,6 +40,21 @@ public class Dictionary {
 	
 	public Integer getId(Term term) {
 		return this.term2id.get(term);
+	}
+
+	public Integer getId(Term term, Integer defaultValue) {
+		Integer id = this.term2id.get(term);
+		
+		return (id != null) ? id : defaultValue;
+	}
+	
+	public Integer tryGetIdOrCreate(Term term) {
+		Integer id = getId(term);
+		if (id == null) {
+			id = this.put(term);
+		}
+		
+		return id;
 	}
 
 	public Term getValue(int id) {
