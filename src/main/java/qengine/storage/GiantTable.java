@@ -2,6 +2,7 @@ package qengine.storage;
 
 import fr.boreal.model.logicalElements.api.Substitution;
 import fr.boreal.model.logicalElements.api.Term;
+import fr.boreal.model.logicalElements.api.Variable;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
 import fr.boreal.model.logicalElements.impl.VariableImpl;
 
@@ -12,7 +13,10 @@ import qengine.model.StarQuery;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.Collection;
@@ -58,52 +62,36 @@ public class GiantTable implements RDFStorage {
     	Integer p = dictionary.getId(predicate);
     	Integer o = dictionary.getId(object);
 
-    	// check existence
-    	if (s == null || p == null || o == null) {
-    		// error
-    	}
-    	
     	Stream<TripletId> st = this.giantTable.stream();
     	
-    	if (!subject.isVariable()) {
-    		st = st.filter(tr -> tr.getSubjectId() == s);
-    	}
-
-    	if (!predicate.isVariable()) {
-    		st = st.filter(tr -> tr.getPredicateId() == p);
-    	}
-
-    	if (!object.isVariable()) {
-    		st = st.filter(tr -> tr.getObjectId() == o);
-    	}
+    	if (!subject.isVariable()) st = st.filter(tr -> tr.getSubjectId() == s);
+    	if (!predicate.isVariable()) st = st.filter(tr -> tr.getPredicateId() == p);
+    	if (!object.isVariable()) st = st.filter(tr -> tr.getObjectId() == o);
     	
     	boolean eq_sp = subject.isVariable() && predicate.isVariable() && isEqual(subject, predicate);
     	boolean eq_so = subject.isVariable() && object.isVariable() && isEqual(subject, object);
     	boolean eq_po = predicate.isVariable() && object.isVariable() && isEqual(predicate, object);
     	
-    	if (eq_sp) {
+    	if (eq_sp)
     		st = st.filter(tr -> tr.getSubjectId() == tr.getPredicateId());
-    	}
 
-    	if (eq_so) {
+    	if (eq_so)
     		st = st.filter(tr -> tr.getSubjectId() == tr.getObjectId());
-    	}
 
-    	if (eq_po) {
+    	if (eq_po)
     		st = st.filter(tr -> tr.getPredicateId() == tr.getObjectId());
-    	}
     	
     	return st.map(tr -> {
             Substitution subs = new SubstitutionImpl();
 
             if (subject.isVariable())
-            	subs.add((VariableImpl)subject, dictionary.getValue(tr.getSubjectId()));
+            	subs.add((Variable)subject, dictionary.getValue(tr.getSubjectId()));
 
             if (predicate.isVariable())
-            	subs.add((VariableImpl)predicate, dictionary.getValue(tr.getPredicateId()));
+            	subs.add((Variable)predicate, dictionary.getValue(tr.getPredicateId()));
 
             if (object.isVariable())
-            	subs.add((VariableImpl)object, dictionary.getValue(tr.getObjectId()));
+            	subs.add((Variable)object, dictionary.getValue(tr.getObjectId()));
 
             return subs;
         })
@@ -113,7 +101,19 @@ public class GiantTable implements RDFStorage {
 
     @Override
     public Iterator<Substitution> match(StarQuery q) {
-        throw new NotImplementedException();
+    	List<RDFTriple> queries = q.getRdfAtoms();
+    	Set<Substitution> substitutions = new HashSet<>();
+    	this.match(queries.get(0)).forEachRemaining(substitutions::add);
+    	
+    	for (int index = 1 ; index < queries.size(); ++index) {
+    		RDFTriple query = queries.get(index);
+    		Set<Substitution> current = new HashSet<>();
+    		this.match(query).forEachRemaining(current::add);
+    		
+    		substitutions.retainAll(current);
+    	}
+    	
+        return substitutions.iterator();
     }
 
     @Override
@@ -122,10 +122,7 @@ public class GiantTable implements RDFStorage {
     	Integer p = dictionary.getId(triple.getTriplePredicate());
     	Integer o = dictionary.getId(triple.getTripleObject());
     	
-    	if (s == null || p == null || o == null) {
-    		// missing operands
-    		return 0;
-    	}
+    	if (s == null || p == null || o == null) return 0; // missing operands
     	
     	return this.giantTable.stream().filter(tr -> 
     		((tr.getSubjectId() == s) && (tr.getPredicateId() == p) && (tr.getObjectId() == o)))

@@ -313,9 +313,22 @@ public class RDFHexaStore implements RDFStorage {
     
     @Override
     public Iterator<Substitution> match(StarQuery q) {
-        throw new NotImplementedException();
+    	List<RDFTriple> queries = q.getRdfAtoms();
+    	Set<Substitution> substitutions = new HashSet<>();
+    	this.match(queries.get(0)).forEachRemaining(substitutions::add);
+    	
+    	for (int index = 1 ; index < queries.size(); ++index) {
+    		RDFTriple query = queries.get(index);
+    		Set<Substitution> current = new HashSet<>();
+    		this.match(query).forEachRemaining(current::add);
+    		
+    		substitutions.retainAll(current);
+    	}
+    	
+        return substitutions.iterator();
     }
 
+    // variables
     @Override
     public long howMany(RDFTriple triple) {
     	int s, p, o;

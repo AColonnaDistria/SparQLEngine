@@ -5,6 +5,8 @@ import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
 import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFTriple;
+import qengine.model.StarQuery;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
@@ -159,7 +161,7 @@ public class RDFHexaStoreTest {
 
     @Test
     public void testMatchStarQuery() {
-        throw new NotImplementedException();
+        throw new NotImplementedException("This test must be completed");
     }
 
     // Vos autres tests d'HexaStore ici
