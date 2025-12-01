@@ -4,10 +4,15 @@ import fr.boreal.model.logicalElements.api.*;
 import fr.boreal.model.logicalElements.impl.*;
 
 import org.apache.commons.lang3.NotImplementedException;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Fun;
+
 import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentNavigableMap;
 
 /**
  * Implémentation d'un HexaStore pour stocker des RDFAtom.
@@ -27,19 +32,26 @@ public class RDFHexaStore implements RDFStorage {
 	Index3i osp;
 	Index3i ops;
 	
-    private static List<List<List<List<Index3i>>>> choix_index_array;
+	long size;
+	
+    private List<List<List<List<Index3i>>>> choix_index_array;
+    
+    DB db;
 	
 	public RDFHexaStore() {
 		this.dictionary = new Dictionary();
+		this.size = 0;
 		
-		this.spo = new Index3i();
-		this.sop = new Index3i();
+		this.db = DBMaker.newHeapDB().make();
 		
-		this.pso = new Index3i();
-		this.pos = new Index3i();
+		this.spo = new Index3i(db, "spo");
+		this.sop = new Index3i(db, "sop");
 		
-		this.osp = new Index3i();
-		this.ops = new Index3i();
+		this.pso = new Index3i(db, "pso");
+		this.pos = new Index3i(db, "pos");
+		
+		this.osp = new Index3i(db, "osp");
+		this.ops = new Index3i(db, "ops");
 		
 		TriplePermutation SPO_ORDER = (s, p, o) -> Arrays.asList(s, p, o);
 		TriplePermutation SOP_ORDER = (s, p, o) -> Arrays.asList(s, o, p);
@@ -78,6 +90,13 @@ public class RDFHexaStore implements RDFStorage {
 		this.osp.setPermutationOrder(OSP_ORDER, OSP_ORDER_TERM, POS_ORDER, POS_ORDER_TERM);
 		this.ops.setPermutationOrder(OPS_ORDER, OPS_ORDER_TERM, OPS_ORDER, OPS_ORDER_TERM);
 		
+		this.spo.clear();
+	    this.sop.clear();
+	    this.pso.clear();
+	    this.pos.clear();
+	    this.osp.clear();
+	    this.ops.clear();
+	    
 		this.choix_index_array = List.of(
 	    	List.of(
     			// s
@@ -108,6 +127,10 @@ public class RDFHexaStore implements RDFStorage {
 		);
 	}
 	
+	public void addFromFile(String path) {
+		
+	}
+	
     @Override
     public boolean add(RDFTriple triple) {
     	int s, p, o;
@@ -116,8 +139,13 @@ public class RDFHexaStore implements RDFStorage {
     	p = this.dictionary.put(triple.getTriplePredicate());
     	o = this.dictionary.put(triple.getTripleObject());
     	
-    	insertTripleId(s, p, o);
-    	return true;
+    	if (!this.spo.contains(s, p, o)) {
+        	insertTripleId(s, p, o);
+        	return true;
+    	}
+    	else {
+    		return false;
+    	}
     }
     
     private void insertTripleId(int s, int p, int o) {
@@ -129,11 +157,13 @@ public class RDFHexaStore implements RDFStorage {
 
     	this.osp.put(o, s, p);
     	this.ops.put(o, p, s);
+
+    	this.size++;
     }
 
     @Override
     public long size() {
-    	return this.spo.size();
+    	return this.size;
     }
 
     private boolean isEqual(Term term1, Term term2) {
@@ -178,6 +208,51 @@ public class RDFHexaStore implements RDFStorage {
     	subs.add(sub);
     }
     
+    private Index3i choose_index(boolean variableSubject, boolean variablePredicate, boolean variableObject, Integer s, Integer p, Integer o) {
+    	int vs = variableSubject ? 1 : 0;
+    	int vp = variablePredicate ? 1 : 0;
+    	int vo = variableObject ? 1 : 0;
+    	
+    	return this.choix_index_array.get(vs).get(vp).get(vo)
+    			.stream().min((Index3i index1, Index3i index2) -> {
+    		int s1 = index1.selectivity();
+    		int s2 = index2.selectivity();
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+    		
+    		List<Integer> keys_index1_perm = index1.applyPermutationOrder(s, p, o);
+    		List<Integer> keys_index2_perm = index2.applyPermutationOrder(s, p, o);
+    		
+    		s1 = index1.selectivity(keys_index1_perm.get(0));
+    		s2 = index2.selectivity(keys_index2_perm.get(0));
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+
+    		s1 = index1.selectivity(keys_index1_perm.get(0), keys_index1_perm.get(1));
+    		s2 = index2.selectivity(keys_index2_perm.get(0), keys_index2_perm.get(1));
+    		
+    		if (s1 < s2) {
+    			return -1;
+    		}
+    		else if (s1 > s2) {
+    			return +1;
+    		}
+    		
+    		return 0;
+    	}).orElse(null);
+    }
+    
+    /*
     private List<Index3i> choose_indexes(boolean variableSubject, boolean variablePredicate, boolean variableObject) {
     	int vs = variableSubject ? 1 : 0;
     	int vp = variablePredicate ? 1 : 0;
@@ -226,6 +301,7 @@ public class RDFHexaStore implements RDFStorage {
     		return 0;
     	}).findFirst().orElse(null);
     }
+    */
     
     @Override
     public Iterator<Substitution> match(RDFTriple triple) {
@@ -239,10 +315,33 @@ public class RDFHexaStore implements RDFStorage {
     	Term predicate = triple.getTriplePredicate();
     	Term object = triple.getTripleObject();
 
-    	int s = variableSubject ? -1 : this.dictionary.getId(subject);
-    	int p = variablePredicate ? -1 : this.dictionary.getId(predicate);
-    	int o = variableObject ? -1 : this.dictionary.getId(object);
+    	Integer s, p, o;
+    	
+    	if (!variableSubject) {
+    		s = this.dictionary.getId(subject);
+    	}
+    	else {
+    		s = -1;
+    	}
+    	
+    	if (!variablePredicate) {
+    		p = this.dictionary.getId(predicate);
+    	}
+    	else {
+    		p = -1;
+    	}
 
+    	if (!variableObject) {
+    		o = this.dictionary.getId(object);
+    	}
+    	else {
+    		o = -1;
+    	}
+    	
+    	if (s == null || p == null || o == null) {
+            return subs.iterator(); 
+        }
+    	
     	// choisit le meilleur index
     	Index3i index = this.choose_index(variableSubject, variablePredicate, variableObject, s, p, o);
     	List<Integer> keys = index.applyPermutationOrder(s, p, o);
@@ -266,40 +365,46 @@ public class RDFHexaStore implements RDFStorage {
     	else if (count == 1) {
     		Set<Integer> keySet3 = index.get(key1, key2);
     		
-    		for (int key3_subs : keySet3) {
-    			Term term3_subs = dictionary.getValue(key3_subs);
-    			
-    			addSubstitution(subs, term3, term3_subs);
+    		if (keySet3 != null) {
+        		for (int key3_subs : keySet3) {
+        			Term term3_subs = dictionary.getValue(key3_subs);
+        			
+        			addSubstitution(subs, term3, term3_subs);
+        		}
     		}
     	}
     	else if (count == 2) {
-    		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1);
-    		Set<Integer> keySet2 = L2.keySet();
+    		ConcurrentNavigableMap<Fun.Tuple2<Integer,Integer>,HashSet<Integer>> L2 = index.get(key1);
     		
-    		for (int key2_subs : keySet2) {
-    			Term term2_subs = dictionary.getValue(key2_subs);
-    			Set<Integer> keySet3 = L2.get(key2_subs);
-    			
-        		for (int key3_subs : keySet3) {
-        			Term term3_subs = dictionary.getValue(key3_subs);
+    		if (L2 != null) {
+        		for (Map.Entry<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> entry : L2.entrySet()) {
+        			Fun.Tuple2<Integer, Integer> entryKeys = entry.getKey();
+        			Set<Integer> entryValues = entry.getValue();
+        			
+        			Integer key2_subs = entryKeys.b;
+        			Term term2_subs = dictionary.getValue(key2_subs);
+        			
+            		for (int key3_subs : entryValues) {
+            			Term term3_subs = dictionary.getValue(key3_subs);
 
-        			addSubstitution(subs, term2, term2_subs, term3, term3_subs);
+            			addSubstitution(subs, term2, term2_subs, term3, term3_subs);
+            		}
         		}
     		}
     	}
     	else { // count == 3
-    		Set<Integer> keySet1 = index.keySet();
-    		
-    		for (int key1_subs : keySet1) {
-        		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1_subs);
-        		Set<Integer> keySet2 = L2.keySet();
-    			Term term1_subs = dictionary.getValue(key1_subs);
-        		
-        		for (int key2_subs : keySet2) {
-        			Term term2_subs = dictionary.getValue(key2_subs);
-        			Set<Integer> keySet3 = L2.get(key2_subs);
+    		if (index.entrySet() != null) {
+        		for (Map.Entry<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> entry : index.entrySet()) {
+        			Fun.Tuple2<Integer, Integer> entryKeys = entry.getKey();
+        			Set<Integer> entryValues = entry.getValue();
+
+        			Integer key1_subs = entryKeys.a;
+        			Term term1_subs = dictionary.getValue(key1_subs);
         			
-            		for (int key3_subs : keySet3) {
+        			Integer key2_subs = entryKeys.b;
+        			Term term2_subs = dictionary.getValue(key2_subs);
+        			
+            		for (int key3_subs : entryValues) {
             			Term term3_subs = dictionary.getValue(key3_subs);
 
             			addSubstitution(subs, term1, term1_subs, term2, term2_subs, term3, term3_subs);
@@ -307,6 +412,9 @@ public class RDFHexaStore implements RDFStorage {
         		}
     		}
     	}
+    	
+    	// Filtrage par les égalités
+    	
     	
     	return subs.iterator();
     }
@@ -348,28 +456,27 @@ public class RDFHexaStore implements RDFStorage {
     	Index3i index = this.choose_index(true, true, true, -1, -1, -1);
     	
     	ArrayList<RDFTriple> atoms = new ArrayList<>();
-		Set<Integer> keySet1 = index.keySet();
 		
-		for (int key1 : keySet1) {
-    		TreeMap<Integer, HashSet<Integer>> L2 = index.get(key1);
-    		Set<Integer> keySet2 = L2.keySet();
-			Term term1 = dictionary.getValue(key1);
-    		
-    		for (int key2 : keySet2) {
-    			Term term2 = dictionary.getValue(key2);
-    			Set<Integer> keySet3 = L2.get(key2);
-    			
-        		for (int key3 : keySet3) {
-        			Term term3 = dictionary.getValue(key3);
+		for (Map.Entry<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> entry : index.entrySet()) {
+			Fun.Tuple2<Integer, Integer> entryKeys = entry.getKey();
+			Set<Integer> entryValues = entry.getValue();
 
-        			List<Term> SPO = index.applyInversePermutationOrder(term1, term2, term3);
-        			
-        			Term subject = SPO.get(0);
-        			Term predicate = SPO.get(1);
-        			Term object = SPO.get(2);
-        			
-        			atoms.add(new RDFTriple(subject, predicate, object));
-        		}
+			Integer key1 = entryKeys.a;
+			Term term1 = dictionary.getValue(key1);
+			
+			Integer key2 = entryKeys.b;
+			Term term2 = dictionary.getValue(key2);
+			
+    		for (int key3 : entryValues) {
+    			Term term3 = dictionary.getValue(key3);
+    			
+    			List<Term> spo = index.applyInversePermutationOrder(term1, term2, term3);
+    			
+    			Term subject = spo.get(0);
+    			Term predicate = spo.get(1);
+    			Term object = spo.get(2);
+
+    			atoms.add(new RDFTriple(subject, predicate, object));
     		}
 		}
     	

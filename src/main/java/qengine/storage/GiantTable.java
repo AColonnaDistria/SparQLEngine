@@ -40,7 +40,15 @@ public class GiantTable implements RDFStorage {
     	Integer p = dictionary.tryGetIdOrCreate(triple.getTriplePredicate());
     	Integer o = dictionary.tryGetIdOrCreate(triple.getTripleObject());
     	
-    	return this.giantTable.add(new TripletId(s, p, o));
+    	TripletId tripletId = new TripletId(s, p, o);
+    	
+    	if (!this.giantTable.contains(tripletId)) {
+        	this.giantTable.add(new TripletId(s, p, o));
+        	return true;
+    	}
+    	else {
+    		return false;
+    	}
     }
 
     @Override
@@ -63,6 +71,12 @@ public class GiantTable implements RDFStorage {
     	Integer o = dictionary.getId(object);
 
     	Stream<TripletId> st = this.giantTable.stream();
+    	
+    	if (((!subject.isVariable()) && s == null)
+    	 || ((!predicate.isVariable()) && p == null)
+         || ((!object.isVariable()) && o == null)) {
+    		return new ArrayList<Substitution>().iterator();
+         }
     	
     	if (!subject.isVariable()) st = st.filter(tr -> tr.getSubjectId() == s);
     	if (!predicate.isVariable()) st = st.filter(tr -> tr.getPredicateId() == p);

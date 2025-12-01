@@ -1,26 +1,52 @@
 package qengine.storage;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentNavigableMap;
+
+import org.mapdb.BTreeKeySerializer;
+import org.mapdb.BTreeMap;
+import org.mapdb.DB;
+import org.mapdb.Fun;
+import org.mapdb.Fun.Tuple2;
+import org.mapdb.Serializer;
 
 import fr.boreal.model.logicalElements.api.Substitution;
 import fr.boreal.model.logicalElements.api.Term;
 import qengine.model.RDFTriple;
 
 public class Index3i {
+	DB db; // = DBMaker.heapDB().make();
+	
 	// key1, key2, key3
-	TreeMap<Integer, TreeMap<Integer, HashSet<Integer>>> index3;
+	BTreeMap<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> index3;
 	TriplePermutation permutationOrder;
 	TriplePermutationTerm permutationOrderTerm;
 
 	TriplePermutation permutationOrder_INVERSE;
 	TriplePermutationTerm permutationOrderTerm_INVERSE;
 	
-	public Index3i() {
-		index3 = new TreeMap<Integer, TreeMap<Integer, HashSet<Integer>>>();
+	private HashMap<Integer, Integer> stats1;
+	private HashMap<Fun.Tuple2<Integer, Integer>, Integer> stats2;
+	
+	public Index3i(DB db, String name) {
+		this.db = db;
+		
+		this.stats1 = new HashMap<>();
+		this.stats2 = new HashMap<>();
+		
+		index3 = db.createTreeMap(name)
+			.keySerializer(new BTreeKeySerializer.Tuple2KeySerializer(
+	            BTreeMap.COMPARABLE_COMPARATOR, // Comparator for K1 (assumes Integer implements Comparable)
+	            Serializer.INTEGER,             // Serializer for K1
+	            Serializer.INTEGER              // Serializer for K2
+		      ))
+			.valueSerializer(Serializer.JAVA).make();
 	}
 	
 	public void setPermutationOrder(TriplePermutation permutationOrder, TriplePermutationTerm permutationOrderTerm,
@@ -48,31 +74,27 @@ public class Index3i {
 		return this.permutationOrderTerm_INVERSE.permuteTerm(term1, term2, term3);
 	}
 	
-	public Set<Integer> keySet() {
-		return index3.keySet();
+	public Set<Map.Entry<Fun.Tuple2<Integer,Integer>,HashSet<Integer>>> entrySet() {
+		return index3.entrySet();
 	}
 	
-	public TreeMap<Integer, HashSet<Integer>> get(int key1) {
-		if (!index3.containsKey(key1)) {
-			return null;
-		}
-		
-		return index3.get(key1);
+	public ConcurrentNavigableMap<Fun.Tuple2<Integer,Integer>,HashSet<Integer>> get(int key1) {
+		Fun.Tuple2<Integer, Integer> startKey = Fun.t2(key1, Integer.MIN_VALUE);
+		Fun.Tuple2<Integer, Integer> endKey = Fun.t2(key1, Integer.MAX_VALUE);
+	
+		return this.index3.subMap(startKey, true, endKey, false);
 	}
 
 	public HashSet<Integer> get(int key1, int key2) {
-		TreeMap<Integer, HashSet<Integer>> index_key1 = this.get(key1);
-
-		if (!index_key1.containsKey(key2)) {
-			return null;
-		}
-
-		HashSet<Integer> index_key2 = index_key1.get(key2);
-		return index_key2;
+		return this.index3.get(new Fun.Tuple2<>(key1, key2));
 	}
 
 	public boolean contains(int key1, int key2, int key3) {
 		HashSet<Integer> index_key2 = this.get(key1, key2);
+		
+		if (index_key2 == null) {
+			return false;
+		}
 		
 		return index_key2.contains(key3);
 	}
@@ -84,20 +106,19 @@ public class Index3i {
 	}
 	
 	public void put(int key1, int key2, int key3) {
-	    TreeMap<Integer, HashSet<Integer>> index_key1 = this.index3.get(key1);
-	    
-	    if (index_key1 == null) {
-	        index_key1 = new TreeMap<>();
-	        this.index3.put(key1, index_key1);
-	    }
-	    
-	    HashSet<Integer> index_key2 = index_key1.get(key2);
-	    if (index_key2 == null) {
-	        index_key2 = new HashSet<>();
-	        index_key1.put(key2, index_key2);
-	    }
-	    
-	    index_key2.add(key3);
+		HashSet<Integer> index_key2 = this.get(key1, key2);
+		if (index_key2 == null) {
+			index_key2 = new HashSet<>();
+			
+			this.index3.put(Fun.t2(key1, key2), index_key2);
+
+            // Increment count for Key1
+            stats1.merge(key1, 1, Integer::sum);
+            // Increment count for Key1 + Key2
+            stats2.merge(Fun.t2(key1, key2), 1, Integer::sum);
+		}
+		
+		index_key2.add(key3);
 	}
 	
 	public void putAsSPO(int s, int p, int o) {
@@ -111,11 +132,11 @@ public class Index3i {
 	}
 
 	public int selectivity(int key1) {
-		return this.get(key1).size();
+		return this.stats1.getOrDefault(key1, 0);
 	}
 	
 	public int selectivity(int key1, int key2) {
-		return this.get(key1, key2).size();
+		return this.stats2.getOrDefault(Fun.t2(key1, key2), 0);
 	}
 	
 	// size of the index (= number of branches of first level)

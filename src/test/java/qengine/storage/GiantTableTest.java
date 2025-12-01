@@ -2,8 +2,11 @@ package qengine.storage;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -16,7 +19,11 @@ import fr.boreal.model.logicalElements.api.Substitution;
 import fr.boreal.model.logicalElements.api.Variable;
 import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
+import fr.boreal.model.query.api.Query;
 import qengine.model.RDFTriple;
+import qengine.model.StarQuery;
+import qengine.parser.RDFTriplesParser;
+import qengine.parser.StarQuerySparQLParser;
 
 class GiantTableTest {
     private static final Literal<String> SUBJECT_1 = SameObjectTermFactory.instance().createOrGetLiteral("subject1");
@@ -28,6 +35,15 @@ class GiantTableTest {
     private static final Literal<String> OBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("object3");
     private static final Variable VAR_X = SameObjectTermFactory.instance().createOrGetVariable("?x");
     private static final Variable VAR_Y = SameObjectTermFactory.instance().createOrGetVariable("?y");
+    
+
+    private static final Literal<String> SUBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("subject3");
+    private static final Literal<String> PREDICATE_3 = SameObjectTermFactory.instance().createOrGetLiteral("predicate3");
+    private static final Literal<String> OBJECT_4 = SameObjectTermFactory.instance().createOrGetLiteral("object4");
+
+    private static final Literal<String> SUBJECT_4 = SameObjectTermFactory.instance().createOrGetLiteral("subject4");
+    private static final Literal<String> PREDICATE_4 = SameObjectTermFactory.instance().createOrGetLiteral("predicate4");
+    private static final Literal<String> OBJECT_5 = SameObjectTermFactory.instance().createOrGetLiteral("object5");
 
     @Test
     public void testAddAllRDFAtoms() {
@@ -57,29 +73,153 @@ class GiantTableTest {
         assertTrue(atoms.contains(rdfAtom2), "La base devrait contenir le second RDFAtom ajouté.");
     }
 
+
+    @Test
+    public void testAddDuplicateAtom() {
+        GiantTable store = new GiantTable();
+
+    	RDFTriple rdfAtom1 = new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5);
+    	RDFTriple rdfAtom2 = new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5);
+        
+        assertTrue(store.add(rdfAtom1));
+        assertTrue(!store.add(rdfAtom2));
+        Collection<RDFTriple> atoms = store.getAtoms();
+        
+        assertTrue(atoms.contains(rdfAtom1), "La base devrait contenir le RDFAtom ajouté.");
+        assertTrue(atoms.size() == 1, "Seulement 1 triplet RDF doit être contenu dans la collection.");
+    }
+
+
+    @Test
+    public void testSize() {
+        GiantTable store = new GiantTable();
+        assertTrue(store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_3, PREDICATE_3, OBJECT_4)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5)));
+
+        assertTrue(store.size() == 5);
+    }
+
     @Test
     public void testMatchAtom() {
-    	GiantTable store = new GiantTable();
-        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1)); // RDFAtom(subject1, triple, object1)
-        store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2)); // RDFAtom(subject2, triple, object2)
-        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3)); // RDFAtom(subject1, triple, object3)
+        GiantTable store = new GiantTable();
+        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1));
+        store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2));
+        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3));
 
-        // Case 1
-        RDFTriple matchingAtom = new RDFTriple(SUBJECT_1, PREDICATE_1, VAR_X); // RDFAtom(subject1, predicate1, X)
-        Iterator<Substitution> matchedAtoms = store.match(matchingAtom);
-        List<Substitution> matchedList = new ArrayList<>();
-        matchedAtoms.forEachRemaining(matchedList::add);
+        // Cas : objet variable
+        RDFTriple matchObjVar = new RDFTriple(SUBJECT_1, PREDICATE_1, VAR_X);
+        List<Substitution> subsObjVar = new ArrayList<>();
+        store.match(matchObjVar).forEachRemaining(subsObjVar::add);
 
-        Substitution firstResult = new SubstitutionImpl();
-        firstResult.add(VAR_X, OBJECT_1);
-        Substitution secondResult = new SubstitutionImpl();
-        secondResult.add(VAR_X, OBJECT_3);
+        assertEquals(2, subsObjVar.size(), "Objet variable: deux correspondances attendues");
+        Substitution subObj1 = new SubstitutionImpl();
+        subObj1.add(VAR_X, OBJECT_1);
+        Substitution subObj3 = new SubstitutionImpl();
+        subObj3.add(VAR_X, OBJECT_3);
+        assertTrue(subsObjVar.contains(subObj1));
+        assertTrue(subsObjVar.contains(subObj3));
 
-        assertEquals(2, matchedList.size(), "There should be two matched RDFAtoms");
-        System.out.println(matchedList);
-        assertTrue(matchedList.contains(firstResult), "Missing substitution: " + firstResult);
-        assertTrue(matchedList.contains(secondResult), "Missing substitution: " + secondResult);
+        // Cas : sujet variable
+        RDFTriple matchSubVar = new RDFTriple(VAR_X, PREDICATE_1, OBJECT_2);
+        List<Substitution> subsSubVar = new ArrayList<>();
+        store.match(matchSubVar).forEachRemaining(subsSubVar::add);
 
-        ;
+        assertEquals(1, subsSubVar.size(), "Sujet variable: une correspondance attendue");
+        Substitution subSub = new SubstitutionImpl();
+        subSub.add(VAR_X, SUBJECT_2);
+        assertTrue(subsSubVar.contains(subSub));
+
+        // Cas : prédicat variable
+        RDFTriple matchPredVar = new RDFTriple(SUBJECT_1, VAR_X, OBJECT_1);
+        List<Substitution> subsPredVar = new ArrayList<>();
+        store.match(matchPredVar).forEachRemaining(subsPredVar::add);
+
+        assertEquals(1, subsPredVar.size(), "Prédicat variable: une correspondance attendue");
+        Substitution subPred = new SubstitutionImpl();
+        subPred.add(VAR_X, PREDICATE_1);
+        assertTrue(subsPredVar.contains(subPred));
+
+        // Cas : sujet et objet variables
+        RDFTriple matchSubObjVar = new RDFTriple(VAR_X, PREDICATE_1, VAR_Y);
+        List<Substitution> subsSubObjVar = new ArrayList<>();
+        store.match(matchSubObjVar).forEachRemaining(subsSubObjVar::add);
+
+        assertEquals(3, subsSubObjVar.size(), "Sujet et objet variables: trois correspondances attendues");
+
+        Substitution s1 = new SubstitutionImpl(); s1.add(VAR_X, SUBJECT_1); s1.add(VAR_Y, OBJECT_1);
+        Substitution s2 = new SubstitutionImpl(); s2.add(VAR_X, SUBJECT_1); s2.add(VAR_Y, OBJECT_3);
+        Substitution s3 = new SubstitutionImpl(); s3.add(VAR_X, SUBJECT_2); s3.add(VAR_Y, OBJECT_2);
+
+        assertTrue(subsSubObjVar.contains(s1));
+        assertTrue(subsSubObjVar.contains(s2));
+        assertTrue(subsSubObjVar.contains(s3));
     }
+
+    
+
+    @Test
+    public void testAddRDFAtom() {
+        GiantTable store = new GiantTable();
+
+    	RDFTriple rdfAtom = new RDFTriple(SUBJECT_3, PREDICATE_3, OBJECT_4);
+        
+        assertTrue(store.add(rdfAtom));
+        Collection<RDFTriple> atoms = store.getAtoms();
+        
+        assertTrue(atoms.contains(rdfAtom), "La base devrait contenir le RDFAtom ajouté.");
+    }
+    
+
+    @Test
+    public void testMatchStarQuery() {
+        GiantTable store = new GiantTable();
+        Oracle oracle = new Oracle();
+        
+        try {
+        	File rdftriplesFile = new File("./data/100K.nt");
+        	RDFTriplesParser rdfTriplesParser = new RDFTriplesParser(rdftriplesFile);
+        	
+        	while (rdfTriplesParser.hasNext()) {
+        		RDFTriple triple = rdfTriplesParser.next();
+        		
+        		store.add(triple);
+        		oracle.add(triple);
+        	}
+        } 
+        catch (IOException e) {
+			e.printStackTrace();
+		}
+        
+    	try {
+			StarQuerySparQLParser starQueryParser = new StarQuerySparQLParser("./data/STAR_ALL_workload.queryset");
+
+	    	while (starQueryParser.hasNext()) {
+	    		Query query = starQueryParser.next();
+	    		
+	    		if (query instanceof StarQuery) {
+                    StarQuery starQuery = (StarQuery) query;
+                    
+                    Iterator<Substitution> subs_store = store.match(starQuery);
+                    Iterator<Substitution> subs_oracle = oracle.match(starQuery);
+                    
+                    Set<Substitution> oracleSet = new HashSet<>();
+                    subs_oracle.forEachRemaining(oracleSet::add);
+
+                    Set<Substitution> storeSet = new HashSet<>();
+                    subs_store.forEachRemaining(storeSet::add);
+                    
+                    assertEquals(oracleSet.size(), storeSet.size(), "Le nombre de substitutions diffère de l'oracle pour une requête.");
+                    assertEquals(oracleSet, storeSet, "Le contenu des substitutions diffère de l'oracle pour une requête.");
+	    		}
+	    	}
+    	} 
+    	catch (IOException e) {
+			e.printStackTrace();
+		}
+    	
+    }
+
 }

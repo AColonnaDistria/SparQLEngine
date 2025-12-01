@@ -2,16 +2,25 @@ package qengine.storage;
 
 import fr.boreal.model.logicalElements.api.*;
 import fr.boreal.model.logicalElements.factory.impl.SameObjectTermFactory;
+import fr.boreal.model.logicalElements.impl.AtomImpl;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
+import fr.boreal.model.query.api.Query;
+
 import org.apache.commons.lang3.NotImplementedException;
 import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
+import qengine.parser.RDFTriplesParser;
+import qengine.parser.StarQuerySparQLParser;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+
+import fr.boreal.storage.natives.*;
 
 /**
  * Tests unitaires pour la classe {@link RDFHexaStore}.
@@ -26,7 +35,15 @@ public class RDFHexaStoreTest {
     private static final Literal<String> OBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("object3");
     private static final Variable VAR_X = SameObjectTermFactory.instance().createOrGetVariable("?x");
     private static final Variable VAR_Y = SameObjectTermFactory.instance().createOrGetVariable("?y");
-    private static final Variable VAR_Z = SameObjectTermFactory.instance().createOrGetVariable("?z");
+    
+
+    private static final Literal<String> SUBJECT_3 = SameObjectTermFactory.instance().createOrGetLiteral("subject3");
+    private static final Literal<String> PREDICATE_3 = SameObjectTermFactory.instance().createOrGetLiteral("predicate3");
+    private static final Literal<String> OBJECT_4 = SameObjectTermFactory.instance().createOrGetLiteral("object4");
+
+    private static final Literal<String> SUBJECT_4 = SameObjectTermFactory.instance().createOrGetLiteral("subject4");
+    private static final Literal<String> PREDICATE_4 = SameObjectTermFactory.instance().createOrGetLiteral("predicate4");
+    private static final Literal<String> OBJECT_5 = SameObjectTermFactory.instance().createOrGetLiteral("object5");
 
     @Test
     public void testAddAllRDFAtoms() {
@@ -58,17 +75,41 @@ public class RDFHexaStoreTest {
 
     @Test
     public void testAddRDFAtom() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+
+    	RDFTriple rdfAtom = new RDFTriple(SUBJECT_3, PREDICATE_3, OBJECT_4);
+        
+        assertTrue(store.add(rdfAtom));
+        Collection<RDFTriple> atoms = store.getAtoms();
+        
+        assertTrue(atoms.contains(rdfAtom), "La base devrait contenir le RDFAtom ajouté.");
     }
 
     @Test
     public void testAddDuplicateAtom() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+
+    	RDFTriple rdfAtom1 = new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5);
+    	RDFTriple rdfAtom2 = new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5);
+        
+        assertTrue(store.add(rdfAtom1));
+        assertTrue(!store.add(rdfAtom2));
+        Collection<RDFTriple> atoms = store.getAtoms();
+        
+        assertTrue(atoms.contains(rdfAtom1), "La base devrait contenir le RDFAtom ajouté.");
+        assertTrue(atoms.size() == 1, "Seulement 1 triplet RDF doit être contenu dans la collection.");
     }
 
     @Test
     public void testSize() {
-        throw new NotImplementedException();
+        RDFHexaStore store = new RDFHexaStore();
+        assertTrue(store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_3, PREDICATE_3, OBJECT_4)));
+        assertTrue(store.add(new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5)));
+
+        assertTrue(store.size() == 5);
     }
 
     @Test
@@ -161,7 +202,51 @@ public class RDFHexaStoreTest {
 
     @Test
     public void testMatchStarQuery() {
-        throw new NotImplementedException("This test must be completed");
+        RDFHexaStore store = new RDFHexaStore();
+        Oracle oracle = new Oracle();
+        
+        try {
+        	File rdftriplesFile = new File("./data/100K.nt");
+        	RDFTriplesParser rdfTriplesParser = new RDFTriplesParser(rdftriplesFile);
+        	
+        	while (rdfTriplesParser.hasNext()) {
+        		RDFTriple triple = rdfTriplesParser.next();
+        		
+        		store.add(triple);
+        		oracle.add(triple);
+        	}
+        } 
+        catch (IOException e) {
+			e.printStackTrace();
+		}
+        
+    	try {
+			StarQuerySparQLParser starQueryParser = new StarQuerySparQLParser("./data/STAR_ALL_workload.queryset");
+
+	    	while (starQueryParser.hasNext()) {
+	    		Query query = starQueryParser.next();
+	    		
+	    		if (query instanceof StarQuery) {
+                    StarQuery starQuery = (StarQuery) query;
+                    
+                    Iterator<Substitution> subs_store = store.match(starQuery);
+                    Iterator<Substitution> subs_oracle = oracle.match(starQuery);
+                    
+                    Set<Substitution> oracleSet = new HashSet<>();
+                    subs_oracle.forEachRemaining(oracleSet::add);
+
+                    Set<Substitution> storeSet = new HashSet<>();
+                    subs_store.forEachRemaining(storeSet::add);
+                    
+                    assertEquals(oracleSet.size(), storeSet.size(), "Le nombre de substitutions diffère de l'oracle pour une requête.");
+                    assertEquals(oracleSet, storeSet, "Le contenu des substitutions diffère de l'oracle pour une requête.");
+	    		}
+	    	}
+    	} 
+    	catch (IOException e) {
+			e.printStackTrace();
+		}
+    	
     }
 
     // Vos autres tests d'HexaStore ici
