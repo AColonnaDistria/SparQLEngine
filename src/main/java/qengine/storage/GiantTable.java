@@ -132,15 +132,26 @@ public class GiantTable implements RDFStorage {
 
     @Override
     public long howMany(RDFTriple triple) {
-    	Integer s = dictionary.getId(triple.getTripleSubject());
-    	Integer p = dictionary.getId(triple.getTriplePredicate());
-    	Integer o = dictionary.getId(triple.getTripleObject());
-    	
-    	if (s == null || p == null || o == null) return 0; // missing operands
-    	
-    	return this.giantTable.stream().filter(tr -> 
-    		((tr.getSubjectId() == s) && (tr.getPredicateId() == p) && (tr.getObjectId() == o)))
-    		.count();
+        Integer s = triple.getTripleSubject().isVariable() ? null :
+                    dictionary.getId(triple.getTripleSubject());
+
+        Integer p = triple.getTriplePredicate().isVariable() ? null :
+                    dictionary.getId(triple.getTriplePredicate());
+
+        Integer o = triple.getTripleObject().isVariable() ? null :
+                    dictionary.getId(triple.getTripleObject());
+
+        if ((!triple.getTripleSubject().isVariable() && s == null) ||
+            (!triple.getTriplePredicate().isVariable() && p == null) ||
+            (!triple.getTripleObject().isVariable() && o == null)) {
+            return 0;
+        }
+
+        return giantTable.stream().filter(tr ->
+                (triple.getTripleSubject().isVariable() || tr.getSubjectId() == s) &&
+                (triple.getTriplePredicate().isVariable() || tr.getPredicateId() == p) &&
+                (triple.getTripleObject().isVariable() || tr.getObjectId() == o)
+        ).count();
     }
 
     @Override

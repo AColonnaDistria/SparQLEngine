@@ -71,8 +71,15 @@ public class Oracle implements RDFStorage {
 
 	@Override
 	public long howMany(RDFTriple a) {
-		// TODO Auto-generated method stub
-		return 0;
+		long count = 0;
+		
+		CloseableIteratorWithoutException<Atom> subs_atoms = data.match(a);
+		while (subs_atoms.hasNext()) {
+			subs_atoms.next();
+			++count;
+		}
+		
+		return count;
 	}
 
 	@Override

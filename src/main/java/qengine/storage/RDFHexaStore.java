@@ -97,6 +97,7 @@ public class RDFHexaStore implements RDFStorage {
 	    this.osp.clear();
 	    this.ops.clear();
 	    
+	    // Arbre binaire
 		this.choix_index_array = List.of(
 	    	List.of(
     			// s
@@ -126,11 +127,7 @@ public class RDFHexaStore implements RDFStorage {
     		)
 		);
 	}
-	
-	public void addFromFile(String path) {
-		
-	}
-	
+
     @Override
     public boolean add(RDFTriple triple) {
     	int s, p, o;
@@ -161,6 +158,7 @@ public class RDFHexaStore implements RDFStorage {
     	this.size++;
     }
 
+    
     @Override
     public long size() {
     	return this.size;
@@ -251,57 +249,6 @@ public class RDFHexaStore implements RDFStorage {
     		return 0;
     	}).orElse(null);
     }
-    
-    /*
-    private List<Index3i> choose_indexes(boolean variableSubject, boolean variablePredicate, boolean variableObject) {
-    	int vs = variableSubject ? 1 : 0;
-    	int vp = variablePredicate ? 1 : 0;
-    	int vo = variableObject ? 1 : 0;
-    	
-    	return this.choix_index_array.get(vs).get(vp).get(vo);
-    }
-    
-    private Index3i choose_index(boolean variableSubject, boolean variablePredicate, boolean variableObject, Integer s, Integer p, Integer o) {
-    	List<Index3i> indexes = choose_indexes(variableSubject, variablePredicate, variableObject);
-    	
-    	return indexes.stream().sorted((Index3i index1, Index3i index2) -> {
-    		int s1 = index1.selectivity();
-    		int s2 = index2.selectivity();
-    		
-    		if (s1 < s2) {
-    			return -1;
-    		}
-    		else if (s1 > s2) {
-    			return +1;
-    		}
-    		
-    		List<Integer> keys_index1_perm = index1.applyPermutationOrder(s, p, o);
-    		List<Integer> keys_index2_perm = index2.applyPermutationOrder(s, p, o);
-    		
-    		s1 = index1.selectivity(keys_index1_perm.get(0));
-    		s2 = index2.selectivity(keys_index2_perm.get(0));
-    		
-    		if (s1 < s2) {
-    			return -1;
-    		}
-    		else if (s1 > s2) {
-    			return +1;
-    		}
-
-    		s1 = index1.selectivity(keys_index1_perm.get(0), keys_index1_perm.get(1));
-    		s2 = index2.selectivity(keys_index2_perm.get(0), keys_index2_perm.get(1));
-    		
-    		if (s1 < s2) {
-    			return -1;
-    		}
-    		else if (s1 > s2) {
-    			return +1;
-    		}
-    		
-    		return 0;
-    	}).findFirst().orElse(null);
-    }
-    */
     
     @Override
     public Iterator<Substitution> match(RDFTriple triple) {
@@ -439,16 +386,119 @@ public class RDFHexaStore implements RDFStorage {
     // variables
     @Override
     public long howMany(RDFTriple triple) {
-    	int s, p, o;
+    	long total_triplets_count = 0;
     	
-    	s = this.dictionary.getId(triple.getTripleSubject());
-    	p = this.dictionary.getId(triple.getTriplePredicate());
-    	o = this.dictionary.getId(triple.getTripleObject());
+    	boolean variableSubject = triple.getTripleSubject().isVariable();
+    	boolean variablePredicate = triple.getTriplePredicate().isVariable();
+    	boolean variableObject = triple.getTripleObject().isVariable();
     	
-    	// modify in order to account for best index
-    	Index3i index = this.choose_index(false, false, false, s, p, o);
+    	Term subject = triple.getTripleSubject();
+    	Term predicate = triple.getTriplePredicate();
+    	Term object = triple.getTripleObject();
+
+    	Integer s, p, o;
     	
-    	return (index.containsAsSPO(s, p, o)) ? 1 : 0;
+    	if (!variableSubject) {
+    		s = this.dictionary.getId(subject);
+    	}
+    	else {
+    		s = -1;
+    	}
+    	
+    	if (!variablePredicate) {
+    		p = this.dictionary.getId(predicate);
+    	}
+    	else {
+    		p = -1;
+    	}
+
+    	if (!variableObject) {
+    		o = this.dictionary.getId(object);
+    	}
+    	else {
+    		o = -1;
+    	}
+    	
+    	if (s == null || p == null || o == null) {
+            return 0; 
+        }
+    	
+    	// choisit le meilleur index
+    	Index3i index = this.choose_index(variableSubject, variablePredicate, variableObject, s, p, o);
+    	List<Integer> keys = index.applyPermutationOrder(s, p, o);
+    	List<Term> terms = index.applyPermutationOrder(subject, predicate, object);
+    	
+    	int key1 = keys.get(0);
+    	int key2 = keys.get(1);
+    	int key3 = keys.get(2);
+    	
+    	Term term1 = terms.get(0);
+    	Term term2 = terms.get(1);
+    	Term term3 = terms.get(2);
+    	
+    	int count = ((key1 == -1) ? 1 : 0) + ((key2 == -1) ? 1 : 0) + ((key3 == -1) ? 1 : 0);
+    	
+    	if (count == 0) {
+    		if (index.contains(key1, key2, key3)) {
+    			// one triplet
+    			++total_triplets_count;
+    		}
+    	}
+    	else if (count == 1) {
+    		Set<Integer> keySet3 = index.get(key1, key2);
+    		
+    		if (keySet3 != null) {
+        		for (int key3_subs : keySet3) {
+        			Term term3_subs = dictionary.getValue(key3_subs);
+
+        			// one triplet
+        			++total_triplets_count;
+        		}
+    		}
+    	}
+    	else if (count == 2) {
+    		ConcurrentNavigableMap<Fun.Tuple2<Integer,Integer>,HashSet<Integer>> L2 = index.get(key1);
+    		
+    		if (L2 != null) {
+        		for (Map.Entry<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> entry : L2.entrySet()) {
+        			Fun.Tuple2<Integer, Integer> entryKeys = entry.getKey();
+        			Set<Integer> entryValues = entry.getValue();
+        			
+        			Integer key2_subs = entryKeys.b;
+        			Term term2_subs = dictionary.getValue(key2_subs);
+        			
+            		for (int key3_subs : entryValues) {
+            			Term term3_subs = dictionary.getValue(key3_subs);
+
+            			// one triplet
+            			++total_triplets_count;
+            		}
+        		}
+    		}
+    	}
+    	else { // count == 3
+    		if (index.entrySet() != null) {
+        		for (Map.Entry<Fun.Tuple2<Integer, Integer>, HashSet<Integer>> entry : index.entrySet()) {
+        			Fun.Tuple2<Integer, Integer> entryKeys = entry.getKey();
+        			Set<Integer> entryValues = entry.getValue();
+
+        			Integer key1_subs = entryKeys.a;
+        			Term term1_subs = dictionary.getValue(key1_subs);
+        			
+        			Integer key2_subs = entryKeys.b;
+        			Term term2_subs = dictionary.getValue(key2_subs);
+        			
+            		for (int key3_subs : entryValues) {
+            			Term term3_subs = dictionary.getValue(key3_subs);
+
+            			// one triplet
+            			++total_triplets_count;
+            		}
+        		}
+    		}
+    	}
+    	
+    	return total_triplets_count;
     }
 
     @Override

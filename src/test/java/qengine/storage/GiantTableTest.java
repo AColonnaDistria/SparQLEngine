@@ -222,4 +222,29 @@ class GiantTableTest {
     	
     }
 
+    @Test
+    public void testHowManyTriple() {
+    	RDFHexaStore store = new RDFHexaStore();
+    	Oracle oracle = new Oracle();
+
+    	store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1));
+    	store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2));
+    	store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3));
+
+    	oracle.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1));
+    	oracle.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2));
+    	oracle.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3));
+
+        RDFTriple pattern1 = new RDFTriple(SUBJECT_1, PREDICATE_1, VAR_X);
+        RDFTriple pattern2 = new RDFTriple(VAR_X, PREDICATE_1, VAR_Y);
+        RDFTriple pattern3 = new RDFTriple(VAR_X, VAR_Y, OBJECT_1);
+        RDFTriple pattern4 = new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1);
+        RDFTriple pattern5 = new RDFTriple(SUBJECT_4, PREDICATE_4, OBJECT_5);
+        
+        assertEquals(oracle.howMany(pattern1), store.howMany(pattern1), "howMany(S1, P1, ?) diffère.");
+        assertEquals(oracle.howMany(pattern2), store.howMany(pattern2), "howMany(?, P1, ?) diffère.");
+        assertEquals(oracle.howMany(pattern3), store.howMany(pattern3), "howMany(?, ?, O1) diffère.");
+        assertEquals(oracle.howMany(pattern4), store.howMany(pattern4), "howMany(S1, P1, O1) diffère.");
+        assertEquals(oracle.howMany(pattern5), store.howMany(pattern5), "howMany(S1, P1, 05) diffère.");
+    }
 }
