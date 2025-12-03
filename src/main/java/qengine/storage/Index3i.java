@@ -127,10 +127,6 @@ public class Index3i {
 		this.put(keys.get(0), keys.get(1), keys.get(2));
 	}
 	
-	public int selectivity() {
-		return this.index3.size();
-	}
-
 	public int selectivity(int key1) {
 		return this.stats1.getOrDefault(key1, 0);
 	}

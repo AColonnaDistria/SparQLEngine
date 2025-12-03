@@ -213,21 +213,11 @@ public class RDFHexaStore implements RDFStorage {
     	
     	return this.choix_index_array.get(vs).get(vp).get(vo)
     			.stream().min((Index3i index1, Index3i index2) -> {
-    		int s1 = index1.selectivity();
-    		int s2 = index2.selectivity();
-    		
-    		if (s1 < s2) {
-    			return -1;
-    		}
-    		else if (s1 > s2) {
-    			return +1;
-    		}
-    		
     		List<Integer> keys_index1_perm = index1.applyPermutationOrder(s, p, o);
     		List<Integer> keys_index2_perm = index2.applyPermutationOrder(s, p, o);
     		
-    		s1 = index1.selectivity(keys_index1_perm.get(0));
-    		s2 = index2.selectivity(keys_index2_perm.get(0));
+    		int s1 = index1.selectivity(keys_index1_perm.get(0));
+    		int s2 = index2.selectivity(keys_index2_perm.get(0));
     		
     		if (s1 < s2) {
     			return -1;
