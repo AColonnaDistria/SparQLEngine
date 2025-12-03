@@ -10,10 +10,15 @@ import java.util.stream.Collectors;
 
 import fr.boreal.model.logicalElements.api.Substitution;
 import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
+import fr.boreal.model.query.api.FOQuery;
+import fr.boreal.model.queryEvaluation.api.FOQueryEvaluator;
+import fr.boreal.query_evaluation.generic.GenericFOQueryEvaluator;
 import fr.boreal.storage.natives.SimpleInMemoryGraphStore;
 import fr.lirmm.boreal.util.stream.CloseableIteratorWithoutException;
 import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
+import fr.boreal.model.formula.api.FOFormula;
+import fr.boreal.model.formula.api.FOFormulaConjunction;
 import fr.boreal.model.logicalElements.api.*;
 
 public class Oracle implements RDFStorage {
@@ -57,19 +62,11 @@ public class Oracle implements RDFStorage {
 
 	@Override
 	public Iterator<Substitution> match(StarQuery q) {
-    	List<RDFTriple> queries = q.getRdfAtoms();
-    	Set<Substitution> substitutions = new HashSet<>();
-    	this.match(queries.get(0)).forEachRemaining(substitutions::add);
-    	
-    	for (int index = 1 ; index < queries.size(); ++index) {
-    		RDFTriple query = queries.get(index);
-    		Set<Substitution> current = new HashSet<>();
-    		this.match(query).forEachRemaining(current::add);
-    		
-    		substitutions.retainAll(current);
-    	}
-    	
-        return substitutions.iterator();
+		FOQuery<FOFormulaConjunction> foQuery = q.asFOQuery(); // Conversion en FOQuery
+		FOQueryEvaluator<FOFormula> evaluator = GenericFOQueryEvaluator.defaultInstance(); // Créer un évaluateur
+		Iterator<Substitution> queryResults = evaluator.evaluate(foQuery, data); // Évaluer la requête
+
+		return queryResults;
 	}
 
 	@Override

@@ -14,6 +14,7 @@ import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
 import qengine.parser.RDFTriplesParser;
 import qengine.parser.StarQuerySparQLParser;
+import qengine.storage.RDFHexaStore;
 
 import java.io.FileReader;
 import java.io.IOException;
@@ -49,6 +50,22 @@ public final class Example {
 		// Exécuter les requêtes sur le store
 		for (StarQuery starQuery : starQueries) {
 			executeStarQuery(starQuery, factBase);
+		}
+		
+		System.out.println("\n=== Executing the queries with RDF Hexastore ===");
+		RDFHexaStore hexastore = new RDFHexaStore();
+		for (RDFTriple triple : rdfAtoms) {
+			hexastore.add(triple);  // Stocker chaque RDFAtom dans le store
+		}
+
+		// Exécuter les requêtes sur le store
+		for (StarQuery starQuery : starQueries) {
+			executeStarQuery(starQuery, factBase);
+		}
+
+		// Exécuter les requêtes sur le hexastore
+		for (StarQuery starQuery : starQueries) {
+			executeStarQueryHexastore(starQuery, hexastore);
 		}
 	}
 
@@ -113,6 +130,22 @@ public final class Example {
 		FOQuery<FOFormulaConjunction> foQuery = starQuery.asFOQuery(); // Conversion en FOQuery
 		FOQueryEvaluator<FOFormula> evaluator = GenericFOQueryEvaluator.defaultInstance(); // Créer un évaluateur
 		Iterator<Substitution> queryResults = evaluator.evaluate(foQuery, factBase); // Évaluer la requête
+
+		System.out.printf("Execution of  %s:%n", starQuery);
+		System.out.println("Answers:");
+		if (!queryResults.hasNext()) {
+			System.out.println("No answer.");
+		}
+		while (queryResults.hasNext()) {
+			Substitution result = queryResults.next();
+			System.out.println(result); // Afficher chaque réponse
+		}
+		System.out.println();
+	}
+	
+
+	private static void executeStarQueryHexastore(StarQuery starQuery, RDFHexaStore factBase) {
+		Iterator<Substitution> queryResults = factBase.match(starQuery); // Évaluer la requête
 
 		System.out.printf("Execution of  %s:%n", starQuery);
 		System.out.println("Answers:");

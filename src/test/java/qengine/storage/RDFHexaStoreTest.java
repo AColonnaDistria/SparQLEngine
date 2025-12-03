@@ -7,6 +7,8 @@ import fr.boreal.model.logicalElements.impl.SubstitutionImpl;
 import fr.boreal.model.query.api.Query;
 
 import org.apache.commons.lang3.NotImplementedException;
+import org.eclipse.rdf4j.rio.RDFFormat;
+
 import qengine.model.RDFTriple;
 import qengine.model.StarQuery;
 import qengine.parser.RDFTriplesParser;
@@ -167,38 +169,6 @@ public class RDFHexaStoreTest {
         assertTrue(subsSubObjVar.contains(s2));
         assertTrue(subsSubObjVar.contains(s3));
     }
-
-    
-    /*
-    @Test
-    public void testMatchAtom() {
-        RDFHexaStore store = new RDFHexaStore();
-        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_1)); // RDFAtom(subject1, triple, object1)
-        store.add(new RDFTriple(SUBJECT_2, PREDICATE_1, OBJECT_2)); // RDFAtom(subject2, triple, object2)
-        store.add(new RDFTriple(SUBJECT_1, PREDICATE_1, OBJECT_3)); // RDFAtom(subject1, triple, object3)
-
-        // Case 1
-        RDFTriple matchingAtom = new RDFTriple(SUBJECT_1, PREDICATE_1, VAR_X); // RDFAtom(subject1, predicate1, X)
-        Iterator<Substitution> matchedAtoms = store.match(matchingAtom);
-        List<Substitution> matchedList = new ArrayList<>();
-        matchedAtoms.forEachRemaining(matchedList::add);
-
-        Substitution firstResult = new SubstitutionImpl();
-        firstResult.add(VAR_X, OBJECT_1);
-        Substitution secondResult = new SubstitutionImpl();
-        secondResult.add(VAR_X, OBJECT_3);
-
-        assertEquals(2, matchedList.size(), "There should be two matched RDFAtoms");
-        System.out.println(matchedList);
-        assertTrue(matchedList.contains(firstResult), "Missing substitution: " + firstResult);
-        assertTrue(matchedList.contains(secondResult), "Missing substitution: " + secondResult);
-
-        ;
-
-        // Other cases
-        // throw new NotImplementedException("This test must be completed");
-    }
-    */
 
     @Test
     public void testMatchStarQuery() {
