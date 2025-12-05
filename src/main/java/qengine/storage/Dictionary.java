@@ -7,12 +7,12 @@ import fr.boreal.model.logicalElements.api.Term;
 
 public class Dictionary {
 	HashMap<Term, Integer> term2id;
-	HashMap<Integer, Term> id2term;
+	ArrayList<Term> id2term;
 	int count;
 	
 	public Dictionary() {
 		this.term2id = new HashMap<Term, Integer>();
-		this.id2term = new HashMap<Integer, Term>();
+		this.id2term = new ArrayList<Term>();
 		this.count = 0;
 	}
 	
@@ -25,7 +25,7 @@ public class Dictionary {
 		++count;
 		
 		this.term2id.put(term, id);
-		this.id2term.put(id, term);
+		this.id2term.add(term);
 		
 		return id;
 	}
@@ -35,7 +35,7 @@ public class Dictionary {
 	}
 
 	public boolean containsId(Integer id) {
-		return this.id2term.containsKey(id);
+		return 0 <= id && id < this.id2term.size();
 	}
 	
 	public Integer getId(Term term) {
